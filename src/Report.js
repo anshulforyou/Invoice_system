@@ -40,15 +40,12 @@ class AsyncCSV extends Component {
 
   getTransactions = async(buyerPANvalue) => {
     const { ethereum } = window;
-    console.log(buyerPANvalue);
     if(ethereum){
         const provider = new ethers.providers.Web3Provider(ethereum);
         const signer = provider.getSigner();
         const invoice_contract = new ethers.Contract(contractAddress, abi, signer);
         const cypher = CryptoJS.AES.encrypt(buyerPANvalue, key, { iv: iv }).toString();
-        console.log(cypher);
         const tx = await invoice_contract.getAllTrans(cypher);
-        console.log(tx);
         if (tx.length > 0) {
             const data = [];
             console.log(tx[0]['id']);
@@ -65,7 +62,6 @@ class AsyncCSV extends Component {
                     status: tx[i]['status']
                 });
             }
-            console.log(data);
             return data;
         }else{
             console.log("No transactions found");

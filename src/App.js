@@ -1,4 +1,4 @@
-import { useState } from 'react';
+// import { useState } from 'react';
 import './App.css';
 import contract from './artifacts/contracts/invoiceContract.sol/invoiceContract.json';
 import { ethers } from 'ethers';
@@ -33,7 +33,7 @@ const abi = contract.abi;
 
 function App() {
 
-  const startPayment = async ({ setError, setTxs, buyerAddress, sellerPAN, buyerPAN, amount }) => {
+  const startPayment = async ({buyerAddress, sellerPAN, buyerPAN, amount }) => {
     try {
       if (!window.ethereum)
         throw new Error("No crypto wallet found. Please install it.");
@@ -52,13 +52,10 @@ function App() {
         invoiceAmount: (amount*1000000000000000000).toString(),
         invoiceDate: Date.now(),
       }
-      console.log(invoice);
       const invoice_contract = new ethers.Contract(contractAddress, abi, signer);
-      console.log(invoice_contract);
 
       var invoice_id = -1;
       invoice_contract.on("invoiceCreated", (invoiceID) => {
-        console.log("Invoice created: ", invoiceID.toNumber());
         invoice_id = invoiceID.toNumber();
       });
 
@@ -74,13 +71,11 @@ function App() {
         console.log("Sending ETH... please wait");
         await tx2.wait();
         console.log("tx2", tx2);
-        setTxs([tx2]);
       } catch (error) {
         console.log("Error sending ether", error);
         const tx3 = await invoice_contract.updateInvoiceStatus(invoice_id, "Failed");
         console.log("Updating Status... please wait");
         await tx3.wait();
-        setError(error);
         console.log("Failed status updated");
       }
 
@@ -90,19 +85,14 @@ function App() {
       console.log("Completed status updated");
     } catch (err) {
       console.log("Error: ", err);
-      setError(err.message);
     }
   };
-  const [setError] = useState();
-  const [setTxs] = useState([]);
   const handleSubmit = async (event) => {
     event.preventDefault();
     console.log(event.target.sellerPAN.value);
     const data = new FormData(event.target);
-    setError();
+    // setError();
     await startPayment({
-      setError,
-      setTxs,
       ether: data.get("amount"),
       buyerAddress: data.get("receiverAddress"),
       sellerPAN: data.get("sellerPAN"),

@@ -8,9 +8,6 @@ import Avatar from '@mui/material/Avatar';
 import Button from '@mui/material/Button';
 import CssBaseline from '@mui/material/CssBaseline';
 import TextField from '@mui/material/TextField';
-// import FormControlLabel from '@mui/material/FormControlLabel';
-// import Checkbox from '@mui/material/Checkbox';
-// import Link from '@mui/material/Link';
 import Paper from '@mui/material/Paper';
 import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
@@ -18,69 +15,25 @@ import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import Typography from '@mui/material/Typography';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
 
+import AsyncCSV from './Report';
+
+const{REACT_APP_SECRET_KEY, REACT_APP_IV, REACT_APP_CONTRACT_ADDRESS} = process.env;
+
+var CryptoJS = require("crypto-js");
+var key = REACT_APP_SECRET_KEY;
+var iv  = REACT_APP_IV;
+
+key = CryptoJS.enc.Base64.parse(key);
+iv = CryptoJS.enc.Base64.parse(iv);
+
 const theme = createTheme();
 
-const contractAddress = "0xC95d73FD72261C8b0433C0d07Bfac1F2AF3A6B1c";
+const contractAddress = REACT_APP_CONTRACT_ADDRESS;
 const abi = contract.abi;
 
 function App() {
-  // const checkWalletIsConnected = async () => {
-  //   const {ethereum} = window;
-  //   if(!ethereum) {
-  //     console.log("Make sure you have metamask installed and logged in");
-  //     return;
-  //   }else{
-  //     console.log("Metamask is connected");
-  //   }
-  //   const accounts = await ethereum.request({method: "eth_accounts"});
-  //   console.log(accounts);
-  //   if(accounts.length !== 0) {
-  //     const account = accounts[0];
-  //     console.log("Account: ", account);
-  //     setCurrentAccount(account);
-  //   } else {
-  //     console.log("No authorized account found");
-  //     return false;
-  //   }
-  // }
 
-  // const connectWalletHandler = async () => {
-  //   const { ethereum } = window;
-  //   if (!ethereum){
-  //     alert("Please install Metamask");
-  //   }
-
-  //   try {
-  //     const accounts = await ethereum.request({method:'eth_requestAccounts'});
-  //     console.log("Found account", accounts[0]);
-  //     setCurrentAccount(accounts[0]);
-  //   } catch (error) {
-  //     console.log("Error connecting to wallet", error);
-  //   }
-  // }
-  
-  // const [currentAccount, setCurrentAccount] = useState(null);
-
-  // useEffect(() => {
-  //   // if(checkWalletIsConnected()===false){
-  //     // console.log("Inside loop");
-  //     connectWalletHandler();
-  //   // };
-  // }, []);
-
-  const cyrb53 = function(str, seed = 0) {
-    let h1 = 0xdeadbeef ^ seed, h2 = 0x41c6ce57 ^ seed;
-    for (let i = 0, ch; i < str.length; i++) {
-        ch = str.charCodeAt(i);
-        h1 = Math.imul(h1 ^ ch, 2654435761);
-        h2 = Math.imul(h2 ^ ch, 1597334677);
-    }
-    h1 = Math.imul(h1 ^ (h1>>>16), 2246822507) ^ Math.imul(h2 ^ (h2>>>13), 3266489909);
-    h2 = Math.imul(h2 ^ (h2>>>16), 2246822507) ^ Math.imul(h1 ^ (h1>>>13), 3266489909);
-    return 4294967296 * (2097151 & h2) + (h1>>>0);
-  };
-
-  const startPayment = async ({ setError, setTxs, ether, addr }) => {
+  const startPayment = async ({ setError, setTxs, ether, buyerAddress, sellerPAN, buyerPAN, amount }) => {
     try {
       if (!window.ethereum)
         throw new Error("No crypto wallet found. Please install it.");
@@ -92,56 +45,69 @@ function App() {
       console.log("Provider: ", provider);
       const signer = provider.getSigner();
       console.log("Signer: ", signer);
-      ethers.utils.getAddress(addr);
-      const tx = await signer.sendTransaction({
-        to: addr,
-        value: ethers.utils.parseEther(ether)
+      ethers.utils.getAddress(buyerAddress);
+      const invoice = {
+        sellerPAN: CryptoJS.AES.encrypt(sellerPAN, key, {iv:iv}).toString(),
+        buyerPAN: CryptoJS.AES.encrypt(buyerPAN, key, {iv:iv}).toString(),
+        invoiceAmount: (amount*1000000000000000000).toString(),
+        invoiceDate: Date.now(),
+      }
+      console.log(invoice);
+      const invoice_contract = new ethers.Contract(contractAddress, abi, signer);
+      console.log(invoice_contract);
+
+      var invoice_id = -1;
+      invoice_contract.on("invoiceCreated", (invoiceID) => {
+        console.log("Invoice created: ", invoiceID.toNumber());
+        invoice_id = invoiceID.toNumber();
       });
-      console.log({ ether, addr });
-      console.log("tx", tx);
-      setTxs([tx]);
+
+      const tx1 = await invoice_contract.createInvoice(buyerAddress, invoice.sellerPAN, invoice.buyerPAN, invoice.invoiceAmount, invoice.invoiceDate, "pending");
+      console.log("Executing transaction... please wait");
+      await tx1.wait();
+      console.log("Completed, transaction hash:", tx1.hash);
+      try{
+        const tx2 = await signer.sendTransaction({
+          to: buyerAddress,
+          value: ethers.utils.parseEther(amount)
+        });
+        console.log("Sending ETH... please wait");
+        await tx2.wait();
+        console.log("tx2", tx2);
+        setTxs([tx2]);
+      } catch (error) {
+        console.log("Error sending ether", error);
+        const tx3 = await invoice_contract.updateInvoiceStatus(invoice_id, "Failed");
+        console.log("Updating Status... please wait");
+        await tx3.wait();
+        setError(error);
+        console.log("Failed status updated");
+      }
+
+      const tx3 = await invoice_contract.updateInvoiceStatus(invoice_id, "Completed");
+      console.log("Updating Status... please wait");
+      await tx3.wait();
+      console.log("Completed status updated");
     } catch (err) {
+      console.log("Error: ", err);
       setError(err.message);
     }
   };
-
-  // const createInvoiceTransaction = async (sellerPAN, buyerPAN, amount, date) => {
-  //   const { ethereum } = window;
-  //   console.log(amount);
-  //   if(ethereum){
-  //     const provider = new ethers.providers.Web3Provider(ethereum);
-  //     const signer = provider.getSigner();
-  //     const invoice = {
-  //       sellerPAN: cyrb53(sellerPAN),
-  //       buyerPAN: cyrb53(buyerPAN),
-  //       invoiceAmount: amount,
-  //       invoiceDate: Date.now(),
-  //     }
-  //     console.log(invoice);
-  //     const invoice_contract = new ethers.Contract(contractAddress, abi, signer);
-  //     console.log(invoice_contract);
-  //     const tx = await invoice_contract.createInvoice(invoice.sellerPAN, invoice.buyerPAN, invoice.invoiceAmount, invoice.invoiceDate);
-  //     console.log(tx);
-  //     console.log("Executing transaction... please wait");
-  //     await tx.wait();
-  //     console.log("Completed, transaction hash:", tx.hash);  
-  //   }else{
-  //     console.log("Ethereum object does not exist");
-  //   }
-  // }
   const [error, setError] = useState();
   const [txs, setTxs] = useState([]);
   const handleSubmit = async (event) => {
     event.preventDefault();
     console.log(event.target.sellerPAN.value);
-    // createInvoiceTransaction(event.target.sellerPAN.value, event.target.buyerPAN.value, event.target.amount.value, event.target.Date.value);
     const data = new FormData(event.target);
     setError();
     await startPayment({
       setError,
       setTxs,
       ether: data.get("amount"),
-      addr: data.get("receiverAddress")
+      buyerAddress: data.get("receiverAddress"),
+      sellerPAN: data.get("sellerPAN"),
+      buyerPAN: data.get("buyerPAN"),
+      amount: data.get("amount"),
     });
   }
 
@@ -216,10 +182,6 @@ function App() {
                 type="number"
                 id="amount"
               />
-              {/* <FormControlLabel
-                control={<Checkbox value="remember" color="primary" />}
-                label="Remember me"
-              /> */}
               <Button
                 type="submit"
                 fullWidth
@@ -229,19 +191,8 @@ function App() {
               >
                 Send
               </Button>
-              {/* <Grid container>
-                <Grid item xs>
-                  <Link href="#" variant="body2">
-                    Forgot password?
-                  </Link>
-                </Grid> */}
-                {/* <Grid item> */}
-                  {/* <Link href="#" variant="body2">
-                    {"Don't have an account? Sign Up"}
-                  </Link> */}
-                {/* </Grid> */}
-              {/* </Grid> */}
-            </Box>
+              </Box>
+              <AsyncCSV/>
           </Box>
         </Grid>
       </Grid>

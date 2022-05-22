@@ -2,8 +2,8 @@
   "_format": "hh-sol-cache-2",
   "files": {
     "/Users/anshu/Documents/GitHub/invoice_system/contracts/invoiceContract.sol": {
-      "lastModificationDate": 1653078777167,
-      "contentHash": "ec56aae98936adeafb48d8fb7351d37c",
+      "lastModificationDate": 1653210776504,
+      "contentHash": "b58af1fa08807d752f55f92194b388eb",
       "sourceName": "contracts/invoiceContract.sol",
       "solcConfig": {
         "version": "0.8.7",

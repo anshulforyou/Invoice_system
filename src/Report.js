@@ -52,7 +52,6 @@ class AsyncCSV extends Component {
             for(let i=0; i<tx.length; i++){
                 var bytes = CryptoJS.AES.decrypt(tx[i]['sellerPAN'], key, {iv:iv});
                 var sellerPAN = bytes.toString(CryptoJS.enc.Utf8);
-                console.log(sellerPAN);
                 data.push({
                     id: tx[i]['id'].toNumber(),
                     amount: tx[i]['invoiceAmount']/1000000000000000000,

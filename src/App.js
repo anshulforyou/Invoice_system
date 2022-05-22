@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import './App.css';
 import contract from './artifacts/contracts/invoiceContract.sol/invoiceContract.json';
 import { ethers } from 'ethers';
@@ -33,7 +33,7 @@ const abi = contract.abi;
 
 function App() {
 
-  const startPayment = async ({ setError, setTxs, ether, buyerAddress, sellerPAN, buyerPAN, amount }) => {
+  const startPayment = async ({ setError, setTxs, buyerAddress, sellerPAN, buyerPAN, amount }) => {
     try {
       if (!window.ethereum)
         throw new Error("No crypto wallet found. Please install it.");
@@ -93,8 +93,8 @@ function App() {
       setError(err.message);
     }
   };
-  const [error, setError] = useState();
-  const [txs, setTxs] = useState([]);
+  const [setError] = useState();
+  const [setTxs] = useState([]);
   const handleSubmit = async (event) => {
     event.preventDefault();
     console.log(event.target.sellerPAN.value);

@@ -3,3 +3,5 @@ The application interacts with a smart contract deployed on ropsten testnet. Mak
 Contract address - 0x02b28Eaf0ab6dd4FDAc4c2095E0fa72dBbabdFC1
 
 While using the application, please keep the console open to read messages.
+
+Live application website - https://zingy-zuccutto-dd376a.netlify.app/
